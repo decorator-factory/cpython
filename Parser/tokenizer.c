@@ -1409,10 +1409,17 @@ tok_get(struct tok_state *tok, const char **p_start, const char **p_end)
                 goto letter_quote;
             }
         }
-        int is_backquoted = c == '`' ? 1 : 0;
+
+        // Collecting the identifier characters and potentially tracking
+        // the backquotes:
+        int have_seen_space = 0;
+        int is_backquoted = c == '`';
         while (is_potential_identifier_char(c) || (c == ' ' && is_backquoted)) {
             if (c >= 128) {
                 nonascii = 1;
+            }
+            if (c == ' '){
+                have_seen_space = 1;
             }
             c = tok_nextc(tok);
             if (c == '`'){
@@ -1425,6 +1432,10 @@ tok_get(struct tok_state *tok, const char **p_start, const char **p_end)
         }
         if (is_backquoted && c != '`'){
             // a backquoted identifier must end with `
+            return ERRORTOKEN;
+        }
+        if (is_backquoted && !have_seen_space){
+            // a backquoted identifier must contain spaces
             return ERRORTOKEN;
         }
         if (nonascii && !verify_identifier(tok)) {
