@@ -23,6 +23,7 @@
               (c >= 'a' && c <= 'z')\
                || (c >= 'A' && c <= 'Z')\
                || c == '_'\
+               || c == '`'\
                || (c >= 128))
 
 #define is_potential_identifier_char(c) (\
@@ -30,6 +31,7 @@
                || (c >= 'A' && c <= 'Z')\
                || (c >= '0' && c <= '9')\
                || c == '_'\
+               || c == '`'\
                || (c >= 128))
 
 
@@ -1407,13 +1409,24 @@ tok_get(struct tok_state *tok, const char **p_start, const char **p_end)
                 goto letter_quote;
             }
         }
-        while (is_potential_identifier_char(c)) {
+        int is_backquoted = c == '`' ? 1 : 0;
+        while (is_potential_identifier_char(c) || (c == ' ' && is_backquoted)) {
             if (c >= 128) {
                 nonascii = 1;
             }
             c = tok_nextc(tok);
+            if (c == '`'){
+                break;
+            }
         }
-        tok_backup(tok, c);
+        if (c != '`'){
+            // we must stop at `, but it should be a part of the identifier
+            tok_backup(tok, c);
+        }
+        if (is_backquoted && c != '`'){
+            // a backquoted identifier must end with `
+            return ERRORTOKEN;
+        }
         if (nonascii && !verify_identifier(tok)) {
             return ERRORTOKEN;
         }
